@@ -33,44 +33,21 @@ let productsCollection;
   4) HOME ROUTE
 */
 app.get("/", (req, res) => {
-  res.send(`
-    <h1>Shop API — Practice 9, 10 & 11</h1>
-
-    <h3>Basic queries</h3>
-    <ul>
-      <li><a href="/api/products" target="_blank">GET /api/products</a></li>
-    </ul>
-
-    <h3>Filtering</h3>
-    <ul>
-      <li>
-        <a href="/api/products?category=Electronics" target="_blank">
-          /api/products?category=Electronics
-        </a>
-      </li>
-      <li>
-        <a href="/api/products?minPrice=100&sort=price" target="_blank">
-          /api/products?minPrice=100&sort=price
-        </a>
-      </li>
-    </ul>
-
-    <h3>Projection</h3>
-    <ul>
-      <li>
-        <a href="/api/products?fields=name,price" target="_blank">
-          /api/products?fields=name,price
-        </a>
-      </li>
-    </ul>
-
-    <p><b>Note:</b> All data is fetched from MongoDB using environment variables.</p>
-  `);
+  res.json({
+    message: "Shop API — Practice 9, 10 & 11",
+    endpoints: {
+      getAll: "GET /api/products",
+      getOne: "GET /api/products/:id",
+      create: "POST /api/products",
+      update: "PUT /api/products/:id",
+      delete: "DELETE /api/products/:id"
+    }
+  });
 });
 
 /*
   5) GET /api/products
-  Practice 9 + 10
+  Filtering, sorting, projection
 */
 app.get("/api/products", async (req, res) => {
   try {
@@ -78,23 +55,15 @@ app.get("/api/products", async (req, res) => {
 
     // FILTER
     const filter = {};
-
-    if (category) {
-      filter.category = category;
-    }
-
-    if (minPrice) {
-      filter.price = { $gte: Number(minPrice) };
-    }
+    if (category) filter.category = category;
+    if (minPrice) filter.price = { $gte: Number(minPrice) };
 
     // SORT
-    let sortOption = {};
-    if (sort === "price") {
-      sortOption.price = 1;
-    }
+    const sortOption = {};
+    if (sort === "price") sortOption.price = 1;
 
     // PROJECTION
-    let projection = {};
+    const projection = {};
     if (fields) {
       fields.split(",").forEach(field => {
         projection[field] = 1;
@@ -142,7 +111,6 @@ app.get("/api/products/:id", async (req, res) => {
 
 /*
   7) POST /api/products
-  Practice 9 + 11
 */
 app.post("/api/products", async (req, res) => {
   const { name, price, category } = req.body;
@@ -159,7 +127,7 @@ app.post("/api/products", async (req, res) => {
     });
   }
 
-  if (typeof price !== "number" || Number.isNaN(price) || price < 0) {
+  if (typeof price !== "number" || price < 0) {
     return res.status(400).json({
       error: "price must be a non-negative number"
     });
@@ -177,7 +145,6 @@ app.post("/api/products", async (req, res) => {
 
     res.status(201).json({
       message: "Product created",
-      id: result.insertedId,
       product: { _id: result.insertedId, ...newProduct }
     });
   } catch (err) {
@@ -186,7 +153,63 @@ app.post("/api/products", async (req, res) => {
 });
 
 /*
-  8) DELETE /api/products/:id
+  8) PUT /api/products/:id
+*/
+app.put("/api/products/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, price, category } = req.body;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "Invalid id" });
+  }
+
+  if (!name && price === undefined && !category) {
+    return res.status(400).json({
+      error: "At least one field must be provided"
+    });
+  }
+
+  const updateData = {};
+
+  if (name) {
+    if (typeof name !== "string") {
+      return res.status(400).json({ error: "name must be a string" });
+    }
+    updateData.name = name.trim();
+  }
+
+  if (category) {
+    if (typeof category !== "string") {
+      return res.status(400).json({ error: "category must be a string" });
+    }
+    updateData.category = category.trim();
+  }
+
+  if (price !== undefined) {
+    if (typeof price !== "number" || price < 0) {
+      return res.status(400).json({ error: "price must be a non-negative number" });
+    }
+    updateData.price = price;
+  }
+
+  try {
+    const result = await productsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    res.json({ message: "Product updated" });
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+/*
+  9) DELETE /api/products/:id
 */
 app.delete("/api/products/:id", async (req, res) => {
   const { id } = req.params;
@@ -211,14 +234,14 @@ app.delete("/api/products/:id", async (req, res) => {
 });
 
 /*
-  9) 404 HANDLER
+  10) 404 HANDLER
 */
 app.use((req, res) => {
   res.status(404).json({ error: "API endpoint not found" });
 });
 
 /*
-  10) START SERVER AFTER DB CONNECT
+  11) START SERVER AFTER DB CONNECT
 */
 async function start() {
   try {
@@ -233,9 +256,10 @@ async function start() {
     productsCollection = db.collection(COLLECTION_NAME);
 
     console.log("Connected to MongoDB");
-    app.listen(PORT, () =>
-      console.log(`Server running on port ${PORT}`)
-    );
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
   } catch (err) {
     console.error("Failed to start server", err);
     process.exit(1);
