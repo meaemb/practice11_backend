@@ -1,11 +1,19 @@
+// 0) Load environment variables
+require("dotenv").config();
+
 const express = require("express");
 const { MongoClient, ObjectId } = require("mongodb");
 
 const app = express();
-const PORT = 3000;
 
 /*
-  1) MIDDLEWARES
+  1) ENVIRONMENT VARIABLES
+*/
+const PORT = process.env.PORT || 3000;
+const MONGO_URL = process.env.MONGO_URI;
+
+/*
+  2) MIDDLEWARES
 */
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
@@ -14,20 +22,19 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 /*
-  2) MONGODB CONFIG
+  3) MONGODB CONFIG
 */
-const MONGO_URL = "mongodb://127.0.0.1:27017";
 const DB_NAME = "shop";
 const COLLECTION_NAME = "products";
 
 let productsCollection;
 
 /*
-  3) HOME ROUTE
+  4) HOME ROUTE
 */
 app.get("/", (req, res) => {
   res.send(`
-    <h1>Shop API — Practice 9 & 10</h1>
+    <h1>Shop API — Practice 9, 10 & 11</h1>
 
     <h3>Basic queries</h3>
     <ul>
@@ -57,14 +64,13 @@ app.get("/", (req, res) => {
       </li>
     </ul>
 
-    <p><b>Note:</b> All data is fetched from MongoDB using query parameters.</p>
+    <p><b>Note:</b> All data is fetched from MongoDB using environment variables.</p>
   `);
 });
 
-
 /*
-  4) GET /api/products
-  Practice 9 + Practice 10
+  5) GET /api/products
+  Practice 9 + 10
 */
 app.get("/api/products", async (req, res) => {
   try {
@@ -84,7 +90,7 @@ app.get("/api/products", async (req, res) => {
     // SORT
     let sortOption = {};
     if (sort === "price") {
-      sortOption.price = 1; // ascending
+      sortOption.price = 1;
     }
 
     // PROJECTION
@@ -110,7 +116,7 @@ app.get("/api/products", async (req, res) => {
 });
 
 /*
-  5) GET /api/products/:id
+  6) GET /api/products/:id
 */
 app.get("/api/products/:id", async (req, res) => {
   const { id } = req.params;
@@ -135,8 +141,8 @@ app.get("/api/products/:id", async (req, res) => {
 });
 
 /*
-  6) POST /api/products
-  Practice Task 9
+  7) POST /api/products
+  Practice 9 + 11
 */
 app.post("/api/products", async (req, res) => {
   const { name, price, category } = req.body;
@@ -179,7 +185,9 @@ app.post("/api/products", async (req, res) => {
   }
 });
 
-// DELETE /api/products/:id
+/*
+  8) DELETE /api/products/:id
+*/
 app.delete("/api/products/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -202,19 +210,22 @@ app.delete("/api/products/:id", async (req, res) => {
   }
 });
 
-
 /*
-  7) 404 HANDLER
+  9) 404 HANDLER
 */
 app.use((req, res) => {
   res.status(404).json({ error: "API endpoint not found" });
 });
 
 /*
-  8) START SERVER AFTER DB CONNECT
+  10) START SERVER AFTER DB CONNECT
 */
 async function start() {
   try {
+    if (!MONGO_URL) {
+      throw new Error("MONGO_URI is not defined");
+    }
+
     const client = new MongoClient(MONGO_URL);
     await client.connect();
 
@@ -223,10 +234,10 @@ async function start() {
 
     console.log("Connected to MongoDB");
     app.listen(PORT, () =>
-      console.log(`Server running on http://localhost:${PORT}`)
+      console.log(`Server running on port ${PORT}`)
     );
   } catch (err) {
-    console.error("Failed to connect to MongoDB", err);
+    console.error("Failed to start server", err);
     process.exit(1);
   }
 }
