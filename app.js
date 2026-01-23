@@ -234,6 +234,17 @@ app.delete("/api/products/:id", async (req, res) => {
 });
 
 /*
+  VERSION ENDPOINT — Practice Task 12
+*/
+app.get("/version", (req, res) => {
+  res.json({
+    version: "1.1",
+    updatedAt: "2026-01-23"
+  });
+});
+
+
+/*
   10) 404 HANDLER
 */
 app.use((req, res) => {
