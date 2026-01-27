@@ -25,56 +25,35 @@ app.use(express.json());
   3) MONGODB CONFIG
 */
 const DB_NAME = "shop";
-const COLLECTION_NAME = "products";
+const PRODUCTS_COLLECTION = "products";
 
 let productsCollection;
+let itemsCollection;
 
 /*
   4) HOME ROUTE
 */
 app.get("/", (req, res) => {
   res.json({
-    message: "Shop API — Practice 9, 10 & 11",
+    message: "Shop API — Practice 9 to 13",
     endpoints: {
-      getAll: "GET /api/products",
-      getOne: "GET /api/products/:id",
-      create: "POST /api/products",
-      update: "PUT /api/products/:id",
-      delete: "DELETE /api/products/:id"
+      products: "/api/products",
+      items: "/api/items",
+      version: "/version"
     }
   });
 });
 
+/* =========================
+   PRODUCTS (Practice 9–11)
+   ========================= */
+
 /*
-  5) GET /api/products
-  Filtering, sorting, projection
+  GET /api/products
 */
 app.get("/api/products", async (req, res) => {
   try {
-    const { category, minPrice, sort, fields } = req.query;
-
-    // FILTER
-    const filter = {};
-    if (category) filter.category = category;
-    if (minPrice) filter.price = { $gte: Number(minPrice) };
-
-    // SORT
-    const sortOption = {};
-    if (sort === "price") sortOption.price = 1;
-
-    // PROJECTION
-    const projection = {};
-    if (fields) {
-      fields.split(",").forEach(field => {
-        projection[field] = 1;
-      });
-    }
-
-    const products = await productsCollection
-      .find(filter, { projection })
-      .sort(sortOption)
-      .toArray();
-
+    const products = await productsCollection.find().toArray();
     res.json({
       count: products.length,
       products
@@ -85,7 +64,7 @@ app.get("/api/products", async (req, res) => {
 });
 
 /*
-  6) GET /api/products/:id
+  GET /api/products/:id
 */
 app.get("/api/products/:id", async (req, res) => {
   const { id } = req.params;
@@ -110,7 +89,7 @@ app.get("/api/products/:id", async (req, res) => {
 });
 
 /*
-  7) POST /api/products
+  POST /api/products
 */
 app.post("/api/products", async (req, res) => {
   const { name, price, category } = req.body;
@@ -118,18 +97,6 @@ app.post("/api/products", async (req, res) => {
   if (!name || price === undefined || !category) {
     return res.status(400).json({
       error: "Missing fields: name, price, category"
-    });
-  }
-
-  if (typeof name !== "string" || typeof category !== "string") {
-    return res.status(400).json({
-      error: "name and category must be strings"
-    });
-  }
-
-  if (typeof price !== "number" || price < 0) {
-    return res.status(400).json({
-      error: "price must be a non-negative number"
     });
   }
 
@@ -153,7 +120,7 @@ app.post("/api/products", async (req, res) => {
 });
 
 /*
-  8) PUT /api/products/:id
+  PUT /api/products/:id
 */
 app.put("/api/products/:id", async (req, res) => {
   const { id } = req.params;
@@ -163,39 +130,10 @@ app.put("/api/products/:id", async (req, res) => {
     return res.status(400).json({ error: "Invalid id" });
   }
 
-  if (!name && price === undefined && !category) {
-    return res.status(400).json({
-      error: "At least one field must be provided"
-    });
-  }
-
-  const updateData = {};
-
-  if (name) {
-    if (typeof name !== "string") {
-      return res.status(400).json({ error: "name must be a string" });
-    }
-    updateData.name = name.trim();
-  }
-
-  if (category) {
-    if (typeof category !== "string") {
-      return res.status(400).json({ error: "category must be a string" });
-    }
-    updateData.category = category.trim();
-  }
-
-  if (price !== undefined) {
-    if (typeof price !== "number" || price < 0) {
-      return res.status(400).json({ error: "price must be a non-negative number" });
-    }
-    updateData.price = price;
-  }
-
   try {
     const result = await productsCollection.updateOne(
       { _id: new ObjectId(id) },
-      { $set: updateData }
+      { $set: { name, price, category } }
     );
 
     if (result.matchedCount === 0) {
@@ -209,7 +147,7 @@ app.put("/api/products/:id", async (req, res) => {
 });
 
 /*
-  9) DELETE /api/products/:id
+  DELETE /api/products/:id
 */
 app.delete("/api/products/:id", async (req, res) => {
   const { id } = req.params;
@@ -233,6 +171,161 @@ app.delete("/api/products/:id", async (req, res) => {
   }
 });
 
+/* =========================
+   ITEMS (Practice 13)
+   ========================= */
+
+/*
+  GET /api/items
+*/
+app.get("/api/items", async (req, res) => {
+  try {
+    const items = await itemsCollection.find().toArray();
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+/*
+  GET /api/items/:id
+*/
+app.get("/api/items/:id", async (req, res) => {
+  const { id } = req.params;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "Invalid id" });
+  }
+
+  try {
+    const item = await itemsCollection.findOne({
+      _id: new ObjectId(id)
+    });
+
+    if (!item) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+/*
+  POST /api/items
+*/
+app.post("/api/items", async (req, res) => {
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: "Name is required" });
+  }
+
+  try {
+    const newItem = {
+      name: name.trim(),
+      createdAt: new Date()
+    };
+
+    const result = await itemsCollection.insertOne(newItem);
+
+    res.status(201).json({
+      message: "Item created",
+      item: { _id: result.insertedId, ...newItem }
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+/*
+  PUT /api/items/:id
+*/
+app.put("/api/items/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "Invalid id" });
+  }
+
+  if (!name) {
+    return res.status(400).json({ error: "Name is required" });
+  }
+
+  try {
+    const result = await itemsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { name: name.trim() } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    res.json({ message: "Item fully updated" });
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+/*
+  PATCH /api/items/:id
+*/
+app.patch("/api/items/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "Invalid id" });
+  }
+
+  if (!name) {
+    return res.status(400).json({ error: "Nothing to update" });
+  }
+
+  try {
+    const result = await itemsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { name: name.trim() } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    res.json({ message: "Item partially updated" });
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+/*
+  DELETE /api/items/:id
+*/
+app.delete("/api/items/:id", async (req, res) => {
+  const { id } = req.params;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "Invalid id" });
+  }
+
+  try {
+    const result = await itemsCollection.deleteOne({
+      _id: new ObjectId(id)
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
 /*
   VERSION ENDPOINT — Practice Task 12
 */
@@ -243,16 +336,15 @@ app.get("/version", (req, res) => {
   });
 });
 
-
 /*
-  10) 404 HANDLER
+  404 HANDLER
 */
 app.use((req, res) => {
   res.status(404).json({ error: "API endpoint not found" });
 });
 
 /*
-  11) START SERVER AFTER DB CONNECT
+  START SERVER AFTER DB CONNECT
 */
 async function start() {
   try {
@@ -264,7 +356,8 @@ async function start() {
     await client.connect();
 
     const db = client.db(DB_NAME);
-    productsCollection = db.collection(COLLECTION_NAME);
+    productsCollection = db.collection(PRODUCTS_COLLECTION);
+    itemsCollection = db.collection("items");
 
     console.log("Connected to MongoDB");
 
