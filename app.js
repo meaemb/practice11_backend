@@ -172,23 +172,23 @@ app.delete("/api/products/:id", async (req, res) => {
 });
 
 /* =========================
-   ITEMS (Practice 13)
+   ITEMS (Practice 13) — USER PROFILES
    ========================= */
 
 /*
-  GET /api/items
+  GET /api/items — get all users
 */
 app.get("/api/items", async (req, res) => {
   try {
-    const items = await itemsCollection.find().toArray();
-    res.json(items);
+    const users = await itemsCollection.find().toArray();
+    res.json(users);
   } catch (err) {
     res.status(500).json({ error: "Database error" });
   }
 });
 
 /*
-  GET /api/items/:id
+  GET /api/items/:id — get user by id
 */
 app.get("/api/items/:id", async (req, res) => {
   const { id } = req.params;
@@ -198,41 +198,49 @@ app.get("/api/items/:id", async (req, res) => {
   }
 
   try {
-    const item = await itemsCollection.findOne({
+    const user = await itemsCollection.findOne({
       _id: new ObjectId(id)
     });
 
-    if (!item) {
-      return res.status(404).json({ error: "Item not found" });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    res.json(item);
+    res.json(user);
   } catch (err) {
     res.status(500).json({ error: "Database error" });
   }
 });
 
 /*
-  POST /api/items
+  POST /api/items — create user
 */
 app.post("/api/items", async (req, res) => {
-  const { name } = req.body;
+  const { username, email, age } = req.body;
 
-  if (!name) {
-    return res.status(400).json({ error: "Name is required" });
+  if (!username || !email || age === undefined) {
+    return res.status(400).json({
+      error: "username, email and age are required"
+    });
+  }
+
+  if (typeof age !== "number") {
+    return res.status(400).json({ error: "age must be a number" });
   }
 
   try {
-    const newItem = {
-      name: name.trim(),
+    const newUser = {
+      username: username.trim(),
+      email: email.trim(),
+      age,
       createdAt: new Date()
     };
 
-    const result = await itemsCollection.insertOne(newItem);
+    const result = await itemsCollection.insertOne(newUser);
 
     res.status(201).json({
-      message: "Item created",
-      item: { _id: result.insertedId, ...newItem }
+      message: "User created",
+      user: { _id: result.insertedId, ...newUser }
     });
   } catch (err) {
     res.status(500).json({ error: "Database error" });
@@ -240,69 +248,77 @@ app.post("/api/items", async (req, res) => {
 });
 
 /*
-  PUT /api/items/:id
+  PUT /api/items/:id — FULL update (replace all fields)
 */
 app.put("/api/items/:id", async (req, res) => {
   const { id } = req.params;
-  const { name } = req.body;
+  const { username, email, age } = req.body;
 
   if (!ObjectId.isValid(id)) {
     return res.status(400).json({ error: "Invalid id" });
   }
 
-  if (!name) {
-    return res.status(400).json({ error: "Name is required" });
+  if (!username || !email || age === undefined) {
+    return res.status(400).json({
+      error: "username, email and age are required"
+    });
   }
 
   try {
     const result = await itemsCollection.updateOne(
       { _id: new ObjectId(id) },
-      { $set: { name: name.trim() } }
+      {
+        $set: {
+          username: username.trim(),
+          email: email.trim(),
+          age
+        }
+      }
     );
 
     if (result.matchedCount === 0) {
-      return res.status(404).json({ error: "Item not found" });
+      return res.status(404).json({ error: "User not found" });
     }
 
-    res.json({ message: "Item fully updated" });
+    res.json({ message: "User fully updated" });
   } catch (err) {
     res.status(500).json({ error: "Database error" });
   }
 });
 
 /*
-  PATCH /api/items/:id
+  PATCH /api/items/:id — PARTIAL update
 */
 app.patch("/api/items/:id", async (req, res) => {
   const { id } = req.params;
-  const { name } = req.body;
+  const updates = req.body;
 
   if (!ObjectId.isValid(id)) {
     return res.status(400).json({ error: "Invalid id" });
   }
 
-  if (!name) {
-    return res.status(400).json({ error: "Nothing to update" });
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: "No fields to update" });
   }
 
   try {
     const result = await itemsCollection.updateOne(
       { _id: new ObjectId(id) },
-      { $set: { name: name.trim() } }
+      { $set: updates }
     );
 
     if (result.matchedCount === 0) {
-      return res.status(404).json({ error: "Item not found" });
+      return res.status(404).json({ error: "User not found" });
     }
 
-    res.json({ message: "Item partially updated" });
+    res.json({ message: "User partially updated" });
   } catch (err) {
     res.status(500).json({ error: "Database error" });
   }
 });
 
 /*
-  DELETE /api/items/:id
+  DELETE /api/items/:id — delete user
 */
 app.delete("/api/items/:id", async (req, res) => {
   const { id } = req.params;
@@ -317,7 +333,7 @@ app.delete("/api/items/:id", async (req, res) => {
     });
 
     if (result.deletedCount === 0) {
-      return res.status(404).json({ error: "Item not found" });
+      return res.status(404).json({ error: "User not found" });
     }
 
     res.status(204).send();
@@ -325,6 +341,7 @@ app.delete("/api/items/:id", async (req, res) => {
     res.status(500).json({ error: "Database error" });
   }
 });
+
 
 /*
   VERSION ENDPOINT — Practice Task 12
