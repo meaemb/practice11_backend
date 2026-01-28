@@ -22,6 +22,25 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 /*
+  PRACTICE 14
+*/
+
+function checkApiKey(req, res, next) {
+  const apiKey = req.headers["x-api-key"];
+
+  if (!apiKey) {
+    return res.status(401).json({ error: "API key is missing" });
+  }
+
+  if (apiKey !== process.env.API_KEY) {
+    return res.status(403).json({ error: "Invalid API key" });
+  }
+
+  next();
+}
+
+
+/*
   3) MONGODB CONFIG
 */
 const DB_NAME = "shop";
